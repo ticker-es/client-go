@@ -3,5 +3,3 @@
 /.idea
 
 *.coverprofile
-
-*.pb.go

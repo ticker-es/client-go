@@ -12,7 +12,7 @@ archive:
 
 release:
 
-build-prerequisites: generate-rpc
+build-prerequisites:
 	mkdir -p bin dist
 
 release-prerequisites:
@@ -24,7 +24,9 @@ install-tools:
 ### BUILD ###################################################################
 
 generate-rpc:
-	protoc -I../rpc --go_out=rpc --go_opt=paths=source_relative --go-grpc_out=rpc \
+	protoc -I../rpc \
+		--go_out=rpc --go_opt=paths=import --go_opt=module=github.com/ticker-es/client-go/rpc \
+		--go-grpc_out=rpc --go-grpc_opt=paths=import --go-grpc_opt=module=github.com/ticker-es/client-go/rpc \
 		../rpc/maintenance.proto \
 		../rpc/event_stream.proto
 
