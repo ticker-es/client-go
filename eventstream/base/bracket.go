@@ -7,6 +7,18 @@ type Bracket struct {
 	LastSequence int64
 }
 
+func (s *Bracket) Sanitize(lastSequence int64) {
+	if s.NextSequence < 1 {
+		s.NextSequence = 1
+	}
+	if s.LastSequence <= 0 {
+		s.LastSequence = lastSequence
+	}
+	if s.LastSequence > lastSequence {
+		s.LastSequence = lastSequence
+	}
+}
+
 func All() Bracket {
 	return Bracket{
 		NextSequence: 1,
