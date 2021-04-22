@@ -4,9 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-
 	"github.com/spf13/cobra"
 	"github.com/ticker-es/client-go/client"
 	"github.com/ticker-es/client-go/eventstream/base"
@@ -55,14 +52,4 @@ func createFormatter(cmd *cobra.Command) client.Formatter {
 		formatter = client.OmitPayload(formatter)
 	}
 	return formatter
-}
-
-func clientConnect() *grpc.ClientConn {
-	connect := viper.GetString("connect")
-	if conn, err := grpc.Dial(connect, grpc.WithInsecure()); err != nil {
-		panic(err)
-	} else {
-		return conn
-	}
-	return nil
 }

@@ -1,67 +1,32 @@
 package client
 
 import (
-	"context"
-	"errors"
-	"io"
-
-	es "github.com/ticker-es/client-go/eventstream/base"
-
 	"github.com/ticker-es/client-go/rpc"
 	"google.golang.org/grpc"
 )
 
 type Client struct {
-	connection        *grpc.ClientConn
-	eventStreamClient rpc.EventStreamClient
+	address             string
+	connection          *grpc.ClientConn
+	eventStreamClient   rpc.EventStreamClient
+	maintenanceClient   rpc.MaintenanceClient
+	authenticationToken string
+	autoAcknowledge     bool
 }
 
 type Option = func(c *Client)
 
-func NewClient(conn *grpc.ClientConn, opts ...Option) *Client {
-	cl := &Client{
-		connection:        conn,
-		eventStreamClient: rpc.NewEventStreamClient(conn),
-	}
+func NewClient(address string, opts ...Option) (*Client, error) {
+	cl := &Client{}
 	for _, opt := range opts {
 		opt(cl)
 	}
-	return cl
-}
-
-func (s *Client) Emit(ctx context.Context, event es.Event) (es.Event, error) {
-	ack, err := s.eventStreamClient.Emit(ctx, rpc.EventToProto(&event))
-	if ack != nil {
-		event.Sequence = ack.Sequence
-		return event, err
+	if conn, err := grpc.Dial(address, grpc.WithInsecure()); err != nil {
+		return nil, err
 	} else {
-		return event, errors.New("didn't receive an Ack")
+		cl.connection = conn
+		cl.eventStreamClient = rpc.NewEventStreamClient(conn)
+		cl.maintenanceClient = rpc.NewMaintenanceClient(conn)
+		return cl, nil
 	}
-}
-
-func (s *Client) Stream(ctx context.Context, selector *es.Selector, bracket *es.Bracket, handler es.EventHandler) error {
-	req := &rpc.StreamRequest{
-		Bracket:  rpc.BracketToProto(bracket),
-		Selector: rpc.SelectorToProto(selector),
-	}
-	stream, err := s.eventStreamClient.Stream(ctx, req)
-	if err != nil {
-		return err
-	}
-	for {
-		ev, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-		event := rpc.ProtoToEvent(ev)
-		if err := handler(event); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Client) Subscribe(ctx context.Context, handler es.EventHandler) error {
 }
