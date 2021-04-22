@@ -37,7 +37,7 @@ func TextFormatter(pretty bool) Formatter {
 		if pretty {
 			r := ataman.NewRenderer(ataman.BasicStyle())
 			//tpl := "<light+green>%s<->, <bg+light+yellow,black,bold> <<%s>> <-><red>!"
-			fmt.Fprint(w, r.MustRenderf("<b>%d<-> » <light+green>%s/%s<->", e.Sequence, strings.Join(e.Aggregate, "."), e.Type))
+			fmt.Fprint(w, r.MustRenderf("<b>%d<-> » <light+green>%s<-> <light+yellow>/%s<->", e.Sequence, strings.Join(e.Aggregate, "."), e.Type))
 			if e.Payload != nil {
 				fmt.Fprint(w, " »")
 				for key, value := range e.Payload {
