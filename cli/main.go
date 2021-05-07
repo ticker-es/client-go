@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/eiannone/keyboard"
 
 	"github.com/spf13/viper"
 
@@ -35,6 +39,15 @@ var (
 			Flag("payload", Str("{}"), Abbr("p"), Description("The payload of the emitted event (- for stdin)"), Persistent()),
 			Flag("from-stdin", Bool(), Description("Read events to be emitted from stdin"), Persistent()),
 			Run(executeEmit),
+		),
+		SubCommand("play",
+			Short("Play events from a file"),
+			Flag("pause", Int(0), Abbr("p"), Description("Pause between emitting events (milliseconds)")),
+			Flag("random", Bool(), Description("Randomize interval between 0 and pause")),
+			Flag("manual", Bool(), Description("Advance manually to the next event")),
+			Flag("sunflower", Bool(), Description("Use a sunflower 🌻 as progress symbol")),
+			Args(cobra.MinimumNArgs(1)),
+			Run(executePlay),
 		),
 		SubCommand("sample",
 			Short("Emit sample events"),
@@ -123,6 +136,62 @@ func executeEmit(cmd *cobra.Command, args []string) {
 	}
 }
 
+func executePlay(cmd *cobra.Command, args []string) {
+	ctx, cancel := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	pause, _ := cmd.Flags().GetInt("pause")
+	random, _ := cmd.Flags().GetBool("random")
+	manual, _ := cmd.Flags().GetBool("manual")
+	sunflower, _ := cmd.Flags().GetBool("sunflower")
+	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
+		for _, arg := range args {
+			if data, err := ioutil.ReadFile(arg); err == nil {
+				var events []base.Event
+				if err := json.Unmarshal(data, &events); err == nil {
+					fmt.Printf("Processing %d events.\n", len(events))
+					if manual {
+						fmt.Print("Press any key to send the next event (q for quit) [")
+					}
+					for _, event := range events {
+						if manual {
+							if _, key, err := keyboard.GetSingleKey(); err == nil {
+								if key == 0x03 || key == 'q' {
+									cancel()
+									return
+								}
+							} else {
+								panic(err)
+							}
+							if sunflower {
+								fmt.Print("🌻")
+							} else {
+								fmt.Print("•")
+							}
+						}
+						if _, err := cl.Emit(ctx, event); err != nil {
+							panic(err)
+						}
+						if pause > 0 {
+							if random && pause > 1 {
+								time.Sleep(time.Millisecond * time.Duration(rand.Intn(pause-1)+1))
+							} else {
+								time.Sleep(time.Millisecond * time.Duration(pause))
+							}
+						}
+					}
+					if manual {
+						fmt.Println("]")
+					}
+				} else {
+					panic(err)
+				}
+			} else {
+				panic(err)
+			}
+		}
+	} else {
+		panic(err)
+	}
+}
 
 func executeSample(cmd *cobra.Command, args []string) {
 
