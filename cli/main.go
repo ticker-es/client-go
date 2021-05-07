@@ -34,11 +34,11 @@ var (
 			Flag("topic", Str(""), Abbr("t"), Description("Select Topic and Type of the emitted event"), Persistent()),
 			Flag("payload", Str("{}"), Abbr("p"), Description("The payload of the emitted event (- for stdin)"), Persistent()),
 			Flag("from-stdin", Bool(), Description("Read events to be emitted from stdin"), Persistent()),
-			Run(executeClientEmit),
+			Run(executeEmit),
 		),
 		SubCommand("sample",
 			Short("Emit sample events"),
-			Run(executeClientSample),
+			Run(executeSample),
 		),
 		SubCommand("stream",
 			Short("Stream a portion of the event stream"),
@@ -47,7 +47,7 @@ var (
 			Flag("pretty", Bool(), Description("Use pretty-mode in Event output"), Persistent()),
 			Flag("selector", Str("/"), Abbr("s"), Description("Select which events to stream"), Persistent()),
 			Flag("range", Str("1:"), Abbr("r"), Description("Select which events to stream"), Persistent()),
-			Run(executeClientStream),
+			Run(executeStream),
 		),
 		SubCommand("subscribe",
 			Short("Subscribe to a specific event stream"),
@@ -56,11 +56,11 @@ var (
 			Flag("pretty", Bool(), Description("Use pretty-mode in Event output"), Persistent()),
 			Flag("selector", Str("/"), Abbr("s"), Description("Select which events to subscribe to"), Persistent()),
 			Flag("client-id", Str(""), Abbr("i"), Description("Unique Identifier for this subscription"), Mandatory(), Persistent(), Env()),
-			Run(executeClientSubscribe),
+			Run(executeSubscribe),
 		),
 		SubCommand("metrics",
 			Short("Show live metrics of the ticker server"),
-			Run(executeClientMetrics),
+			Run(executeMetrics),
 		),
 		Version(version, commit),
 		Completion(),
@@ -78,7 +78,7 @@ func main() {
 	}
 }
 
-func executeClientEmit(cmd *cobra.Command, args []string) {
+func executeEmit(cmd *cobra.Command, args []string) {
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	fromStdin, _ := cmd.Flags().GetBool("from-stdin")
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
@@ -123,11 +123,12 @@ func executeClientEmit(cmd *cobra.Command, args []string) {
 	}
 }
 
-func executeClientSample(cmd *cobra.Command, args []string) {
+
+func executeSample(cmd *cobra.Command, args []string) {
 
 }
 
-func executeClientStream(cmd *cobra.Command, args []string) {
+func executeStream(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
 		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
@@ -143,7 +144,7 @@ func executeClientStream(cmd *cobra.Command, args []string) {
 	}
 }
 
-func executeClientSubscribe(cmd *cobra.Command, args []string) {
+func executeSubscribe(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	clientID := viper.GetString("client-id")
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
@@ -162,7 +163,7 @@ func executeClientSubscribe(cmd *cobra.Command, args []string) {
 	}
 }
 
-func executeClientMetrics(cmd *cobra.Command, args []string) {
+func executeMetrics(cmd *cobra.Command, args []string) {
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
 		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 		for {
