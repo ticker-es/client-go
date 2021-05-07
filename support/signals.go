@@ -6,13 +6,13 @@ import (
 	"os/signal"
 )
 
-func CancelContextOnSignals(parent context.Context, sigs ...os.Signal) context.Context {
+func CancelContextOnSignals(parent context.Context, signals ...os.Signal) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(parent)
-	signals := make(chan os.Signal)
-	signal.Notify(signals, sigs...)
+	signalChannel := make(chan os.Signal)
+	signal.Notify(signalChannel, signals...)
 	go func() {
-		<-signals
+		<-signalChannel
 		cancel()
 	}()
-	return ctx
+	return ctx, cancel
 }

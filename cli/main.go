@@ -79,7 +79,7 @@ func main() {
 }
 
 func executeClientEmit(cmd *cobra.Command, args []string) {
-	ctx := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	fromStdin, _ := cmd.Flags().GetBool("from-stdin")
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
 		if fromStdin {
@@ -130,7 +130,7 @@ func executeClientSample(cmd *cobra.Command, args []string) {
 func executeClientStream(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 		count, err := cl.Stream(ctx, selectorFromFlags(cmd), bracketFromFlags(cmd), func(e *base.Event) error {
 			return formatter(os.Stdout, e)
 		})
@@ -147,7 +147,7 @@ func executeClientSubscribe(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	clientID := viper.GetString("client-id")
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 		err := cl.Subscribe(ctx, clientID, selectorFromFlags(cmd), func(e *base.Event) error {
 			return formatter(os.Stdout, e)
 		})
@@ -164,7 +164,7 @@ func executeClientSubscribe(cmd *cobra.Command, args []string) {
 
 func executeClientMetrics(cmd *cobra.Command, args []string) {
 	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 		for {
 			cl.PrintServerState(ctx)
 			select {
