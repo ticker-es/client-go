@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +12,10 @@ import (
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"google.golang.org/grpc/credentials"
 
 	"github.com/eiannone/keyboard"
 
@@ -29,6 +35,10 @@ var (
 	app     = NewCommandline("ticker",
 		Short("Run the ticker client"),
 		Flag("connect", Str("localhost:6677"), Abbr("c"), Description("Server to connect to"), Mandatory(), Persistent(), Env()),
+		Flag("insecure", Bool(), Description("Connect insecurely (without TLS/checking)"), Persistent(), Env()),
+		Flag("ca-cert", Str(""), Description("CA certificate used to verify server connection"), Persistent(), EnvName("ca_cert")),
+		Flag("client-cert", Str(""), Description("Client certificate"), Persistent(), EnvName("client_cert")),
+		Flag("client-key", Str(""), Description("Client key"), Persistent(), EnvName("client_key")),
 		Flag("token", Str(""), Abbr("a"), Description("Token to use for authentication against the Ticker Server"), Persistent(), Env()),
 		FlagLogFile(),
 		FlagLogFormat(),
@@ -94,45 +104,42 @@ func main() {
 func executeEmit(cmd *cobra.Command, args []string) {
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	fromStdin, _ := cmd.Flags().GetBool("from-stdin")
-	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		if fromStdin {
-			dec := json.NewDecoder(os.Stdin)
-			for {
-				var event base.Event
-				err := dec.Decode(&event)
-				if err == io.EOF {
-					return
-				}
-				if err != nil {
-					panic(err)
-				}
-				if _, err := cl.Emit(ctx, event); err != nil {
-					panic(err)
-				}
+	cl := connect()
+	if fromStdin {
+		dec := json.NewDecoder(os.Stdin)
+		for {
+			var event base.Event
+			err := dec.Decode(&event)
+			if err == io.EOF {
+				return
 			}
-		} else {
-			payloadString, _ := cmd.Flags().GetString("payload")
-			topicAndType, _ := cmd.Flags().GetString("topic")
-			if selector, err := base.ParseSelector(topicAndType); err == nil {
-				var payload map[string]interface{}
-				if err := json.Unmarshal([]byte(payloadString), &payload); err != nil {
-					panic(err)
-				}
-				event := base.Event{
-					Aggregate:  selector.Aggregate,
-					Type:       selector.Type,
-					OccurredAt: time.Now(),
-					Payload:    payload,
-				}
-				if _, err := cl.Emit(ctx, event); err != nil {
-					panic(err)
-				}
-			} else {
+			if err != nil {
+				panic(err)
+			}
+			if _, err := cl.Emit(ctx, event); err != nil {
 				panic(err)
 			}
 		}
 	} else {
-		panic(err)
+		payloadString, _ := cmd.Flags().GetString("payload")
+		topicAndType, _ := cmd.Flags().GetString("topic")
+		if selector, err := base.ParseSelector(topicAndType); err == nil {
+			var payload map[string]interface{}
+			if err := json.Unmarshal([]byte(payloadString), &payload); err != nil {
+				panic(err)
+			}
+			event := base.Event{
+				Aggregate:  selector.Aggregate,
+				Type:       selector.Type,
+				OccurredAt: time.Now(),
+				Payload:    payload,
+			}
+			if _, err := cl.Emit(ctx, event); err != nil {
+				panic(err)
+			}
+		} else {
+			panic(err)
+		}
 	}
 }
 
@@ -142,54 +149,51 @@ func executePlay(cmd *cobra.Command, args []string) {
 	random, _ := cmd.Flags().GetBool("random")
 	manual, _ := cmd.Flags().GetBool("manual")
 	sunflower, _ := cmd.Flags().GetBool("sunflower")
-	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		for _, arg := range args {
-			if data, err := ioutil.ReadFile(arg); err == nil {
-				var events []base.Event
-				if err := json.Unmarshal(data, &events); err == nil {
-					fmt.Printf("Processing %d events.\n", len(events))
+	cl := connect()
+	for _, arg := range args {
+		if data, err := ioutil.ReadFile(arg); err == nil {
+			var events []base.Event
+			if err := json.Unmarshal(data, &events); err == nil {
+				fmt.Printf("Processing %d events.\n", len(events))
+				if manual {
+					fmt.Print("Press any key to send the next event (q for quit) [")
+				}
+				for _, event := range events {
 					if manual {
-						fmt.Print("Press any key to send the next event (q for quit) [")
-					}
-					for _, event := range events {
-						if manual {
-							if _, key, err := keyboard.GetSingleKey(); err == nil {
-								if key == 0x03 || key == 'q' {
-									cancel()
-									return
-								}
-							} else {
-								panic(err)
+						if _, key, err := keyboard.GetSingleKey(); err == nil {
+							if key == 0x03 || key == 'q' {
+								cancel()
+								return
 							}
-							if sunflower {
-								fmt.Print("🌻")
-							} else {
-								fmt.Print("•")
-							}
-						}
-						if _, err := cl.Emit(ctx, event); err != nil {
+						} else {
 							panic(err)
 						}
-						if pause > 0 {
-							if random && pause > 1 {
-								time.Sleep(time.Millisecond * time.Duration(rand.Intn(pause-1)+1))
-							} else {
-								time.Sleep(time.Millisecond * time.Duration(pause))
-							}
+						if sunflower {
+							fmt.Print("🌻")
+						} else {
+							fmt.Print("•")
 						}
 					}
-					if manual {
-						fmt.Println("]")
+					if _, err := cl.Emit(ctx, event); err != nil {
+						panic(err)
 					}
-				} else {
-					panic(err)
+					if pause > 0 {
+						if random && pause > 1 {
+							time.Sleep(time.Millisecond * time.Duration(rand.Intn(pause-1)+1))
+						} else {
+							time.Sleep(time.Millisecond * time.Duration(pause))
+						}
+					}
+				}
+				if manual {
+					fmt.Println("]")
 				}
 			} else {
 				panic(err)
 			}
+		} else {
+			panic(err)
 		}
-	} else {
-		panic(err)
 	}
 }
 
@@ -199,16 +203,13 @@ func executeSample(cmd *cobra.Command, args []string) {
 
 func executeStream(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
-	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
-		count, err := cl.Stream(ctx, selectorFromFlags(cmd), bracketFromFlags(cmd), func(e *base.Event) error {
-			return formatter(os.Stdout, e)
-		})
-		fmt.Printf("Handled %d events\n", count)
-		if err != nil {
-			panic(err)
-		}
-	} else {
+	cl := connect()
+	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	count, err := cl.Stream(ctx, selectorFromFlags(cmd), bracketFromFlags(cmd), func(e *base.Event) error {
+		return formatter(os.Stdout, e)
+	})
+	fmt.Printf("Handled %d events\n", count)
+	if err != nil {
 		panic(err)
 	}
 }
@@ -216,34 +217,72 @@ func executeStream(cmd *cobra.Command, args []string) {
 func executeSubscribe(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	clientID := viper.GetString("client-id")
-	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
-		err := cl.Subscribe(ctx, clientID, selectorFromFlags(cmd), func(e *base.Event) error {
-			return formatter(os.Stdout, e)
-		})
-		if err != nil {
-			if ctx.Err() == context.Canceled {
-				return
-			}
-			panic(err)
+	cl := connect()
+	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	err := cl.Subscribe(ctx, clientID, selectorFromFlags(cmd), func(e *base.Event) error {
+		return formatter(os.Stdout, e)
+	})
+	if err != nil {
+		if ctx.Err() == context.Canceled {
+			return
 		}
-	} else {
 		panic(err)
 	}
 }
 
 func executeMetrics(cmd *cobra.Command, args []string) {
-	if cl, err := client.NewClient(viper.GetString("connect")); err == nil {
-		ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
-		for {
-			cl.PrintServerState(ctx)
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(2 * time.Second):
-			}
+	cl := connect()
+	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	for {
+		cl.PrintServerState(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
 		}
-	} else {
+	}
+}
+
+func connect() *client.Client {
+	certificates := readClientCerts()
+	cfg := &tls.Config{
+		Certificates:     certificates,
+		RootCAs:          readCACerts(viper.GetString("ca_cert")),
+		VerifyConnection: verifyConnection,
+	}
+	cred := credentials.NewTLS(cfg)
+	cl, err := client.NewClient(viper.GetString("connect"), cred)
+	if err != nil {
 		panic(err)
 	}
+	return cl
+}
+
+func readClientCerts() []tls.Certificate {
+	var certificates []tls.Certificate
+	if cert, err := tls.LoadX509KeyPair(viper.GetString("client_cert"), viper.GetString("client_key")); err == nil {
+		certificates = append(certificates, cert)
+	} else {
+		logging.L().Err(err).Msg("Could not read client certificate/key")
+	}
+	return certificates
+}
+
+func verifyConnection(state tls.ConnectionState) error {
+	spew.Dump(state.PeerCertificates[0].Subject.CommonName)
+	return nil
+}
+
+func readCACerts(caCertFiles ...string) *x509.CertPool {
+	caCerts := x509.NewCertPool()
+	for _, caCertFile := range caCertFiles {
+		if caCertData, err := ioutil.ReadFile(caCertFile); err == nil {
+			if !caCerts.AppendCertsFromPEM(caCertData) {
+				logging.L().Error().Str("filename", caCertFile).Msg("Could not parse CA Certificate from PEM")
+			}
+		} else {
+			logging.L().Err(err).Msg("Could not read CA Certificate")
+		}
+	}
+	return caCerts
 }
