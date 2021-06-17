@@ -21,7 +21,7 @@ type Event struct {
 type EventHandler func(e *Event) error
 
 type EventStream interface {
-	Store(event *Event) (int64, error)
+	Emit(event *Event) (int64, error)
 	LastSequence() int64
 	Get(sequence int64) (*Event, error)
 	Stream(ctx context.Context, sel Selector, bracket Bracket, handler EventHandler) error

@@ -27,7 +27,7 @@ func (s *EventStreamWrapper) Emit(builders ...EventBuilder) (*Event, error) {
 	for _, b := range builders {
 		b(event)
 	}
-	_, err := s.wrappedStream.Store(event)
+	_, err := s.wrappedStream.Emit(event)
 	return event, err
 }
 
