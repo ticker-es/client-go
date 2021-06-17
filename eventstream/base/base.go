@@ -44,7 +44,7 @@ type Subscription interface {
 	Wait() error
 	// DropOuts returns how often this Subscription has dropped out of the live stream.
 	DropOuts() int
-	// Shutdown closes this Subscription and removes all associated state. A Subscription can not be resumed after this call.
+	// Shutdown closes this Subscription and removes all associated state. The Subscription can not be resumed after this call.
 	Shutdown()
 }
 
