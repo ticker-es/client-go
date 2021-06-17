@@ -48,6 +48,12 @@ type Subscription interface {
 	Shutdown()
 }
 
+type EventStore interface {
+	Store(event *Event) (int64, error)
+	LastKnownSequence() int64
+	Get(sequence int64) (*Event, error)
+}
+
 type SequenceStore interface {
 	Get(persistentClientID string) (int64, error)
 	Store(persistentClientID string, sequence int64) error
