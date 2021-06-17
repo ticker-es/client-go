@@ -51,7 +51,8 @@ type Subscription interface {
 type EventStore interface {
 	Store(event *Event) (int64, error)
 	LastKnownSequence() int64
-	Get(sequence int64) (*Event, error)
+	Read(sequence int64) (*Event, error)
+	ReadAll(ctx context.Context, sel Selector, bracket Bracket, handler EventHandler) error
 }
 
 type SequenceStore interface {
