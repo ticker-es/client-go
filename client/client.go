@@ -3,12 +3,12 @@ package client
 import (
 	"github.com/ticker-es/client-go/rpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type Client struct {
 	address             string
 	insecure            bool
+	dialOptions         []grpc.DialOption
 	connection          *grpc.ClientConn
 	eventStreamClient   rpc.EventStreamClient
 	maintenanceClient   rpc.MaintenanceClient
@@ -18,17 +18,23 @@ type Client struct {
 
 type Option = func(c *Client)
 
-func NewClient(address string, cred credentials.TransportCredentials) (*Client, error) {
-	cl := &Client{}
-	//for _, opt := range opts {
-	//	opt(cl)
-	//}
-	if conn, err := grpc.Dial(address, grpc.WithTransportCredentials(cred)); err != nil {
-		return nil, err
+func NewClient(address string, opts ...Option) *Client {
+	cl := &Client{
+		address: address,
+	}
+	for _, opt := range opts {
+		opt(cl)
+	}
+	return cl
+}
+
+func (s *Client) Connect() error {
+	if conn, err := grpc.Dial(s.address, s.dialOptions...); err != nil {
+		return err
 	} else {
-		cl.connection = conn
-		cl.eventStreamClient = rpc.NewEventStreamClient(conn)
-		cl.maintenanceClient = rpc.NewMaintenanceClient(conn)
-		return cl, nil
+		s.connection = conn
+		s.eventStreamClient = rpc.NewEventStreamClient(conn)
+		s.maintenanceClient = rpc.NewMaintenanceClient(conn)
+		return nil
 	}
 }

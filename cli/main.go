@@ -251,8 +251,8 @@ func connect() *client.Client {
 		VerifyConnection: verifyConnection,
 	}
 	cred := credentials.NewTLS(cfg)
-	cl, err := client.NewClient(viper.GetString("connect"), cred)
-	if err != nil {
+	cl := client.NewClient(viper.GetString("connect"), client.Credentials(cred))
+	if err := cl.Connect(); err != nil {
 		panic(err)
 	}
 	return cl
