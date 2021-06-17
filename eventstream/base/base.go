@@ -26,25 +26,25 @@ type EventStream interface {
 	Get(sequence int64) (*Event, error)
 	Stream(ctx context.Context, sel Selector, bracket Bracket, handler EventHandler) error
 	Subscribe(ctx context.Context, persistentClientID string, sel Selector, handler EventHandler) (Subscription, error)
-	// Returns all currently known Subscriptions.
+	// Subscriptions returns all currently known Subscriptions.
 	Subscriptions() []Subscription
 }
 
 type Subscription interface {
 	PersistentID() string
-	// Returns the currently active Selector.
+	// ActiveSelector returns the currently active Selector.
 	ActiveSelector() Selector
 	LastAcknowledgedSequence() (int64, error)
 	Acknowledge(sequence int64) error
-	// Returns whether this Subscription is currently active.
+	// Active returns whether this Subscription is currently active.
 	Active() bool
-	// Returns the time this Subscription last became inactive.
+	// InactiveSince returns the time this Subscription last became inactive.
 	InactiveSince() time.Time
 	// Wait for the Subscription to become inactive (disconnected)
 	Wait() error
-	// Returns how often this Subscription has dropped out of the live stream.
+	// DropOuts returns how often this Subscription has dropped out of the live stream.
 	DropOuts() int
-	// Closes this Subscription and removes all associated state. A Subscription can not be resumed after this call.
+	// Shutdown closes this Subscription and removes all associated state. A Subscription can not be resumed after this call.
 	Shutdown()
 }
 
