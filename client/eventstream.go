@@ -11,6 +11,9 @@ import (
 
 func (s *Client) Emit(ctx context.Context, event es.Event) (es.Event, error) {
 	ack, err := s.eventStreamClient.Emit(ctx, rpc.EventToProto(&event))
+	if err != nil {
+		return event, err
+	}
 	if ack != nil {
 		event.Sequence = ack.Sequence
 		return event, err
