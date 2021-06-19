@@ -8,16 +8,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"syscall"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"google.golang.org/grpc/credentials"
-
-	"github.com/eiannone/keyboard"
 
 	"github.com/spf13/viper"
 
@@ -150,51 +145,28 @@ func executePlay(cmd *cobra.Command, args []string) {
 	manual, _ := cmd.Flags().GetBool("manual")
 	sunflower, _ := cmd.Flags().GetBool("sunflower")
 	cl := connect()
-	for _, arg := range args {
-		if data, err := ioutil.ReadFile(arg); err == nil {
-			var events []base.Event
-			if err := json.Unmarshal(data, &events); err == nil {
-				fmt.Printf("Processing %d events.\n", len(events))
-				if manual {
-					fmt.Print("Press any key to send the next event (q for quit) [")
-				}
-				for _, event := range events {
-					if manual {
-						if _, key, err := keyboard.GetSingleKey(); err == nil {
-							if key == 0x03 || key == 'q' {
-								cancel()
-								return
-							}
-						} else {
-							panic(err)
-						}
-						if sunflower {
-							fmt.Print("🌻")
-						} else {
-							fmt.Print("•")
-						}
-					}
-					if _, err := cl.Emit(ctx, event); err != nil {
-						panic(err)
-					}
-					if pause > 0 {
-						if random && pause > 1 {
-							time.Sleep(time.Millisecond * time.Duration(rand.Intn(pause-1)+1))
-						} else {
-							time.Sleep(time.Millisecond * time.Duration(pause))
-						}
-					}
-				}
-				if manual {
-					fmt.Println("]")
-				}
-			} else {
-				panic(err)
-			}
+	var delay func()
+	if manual {
+		delay = client.ManualSuccession(cancel)
+	} else if pause != 0 {
+		if random {
+			delay = client.RandomDelay(pause)
 		} else {
-			panic(err)
+			delay = client.FixedDelay(pause)
 		}
 	}
+	var progressChar string
+	if sunflower {
+		progressChar = "🌻"
+	} else {
+		progressChar = "•"
+	}
+	if manual {
+		fmt.Print("Press any key to send the next event (q for quit) ")
+	}
+	fmt.Print("[")
+	cl.PlayEvents(ctx, loadEvents(args...), delay, progressChar)
+	fmt.Println("]")
 }
 
 func executeSample(cmd *cobra.Command, args []string) {
@@ -269,7 +241,6 @@ func readClientCerts() []tls.Certificate {
 }
 
 func verifyConnection(state tls.ConnectionState) error {
-	spew.Dump(state.PeerCertificates[0].Subject.CommonName)
 	return nil
 }
 

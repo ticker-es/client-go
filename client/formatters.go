@@ -32,9 +32,9 @@ func JsonFormatter(pretty bool) Formatter {
 	}
 }
 
-func TextFormatter(pretty bool) Formatter {
+func TextFormatter(color bool) Formatter {
 	return func(w io.Writer, e *es.Event) error {
-		if pretty {
+		if color {
 			r := ataman.NewRenderer(ataman.BasicStyle())
 			//tpl := "<light+green>%s<->, <bg+light+yellow,black,bold> <<%s>> <-><red>!"
 			fmt.Fprint(w, r.MustRenderf("<b>%d<-> » <light+green>%s<-> <light+yellow>/%s<->", e.Sequence, strings.Join(e.Aggregate, "."), e.Type))

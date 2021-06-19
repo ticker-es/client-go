@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -52,4 +54,20 @@ func createFormatter(cmd *cobra.Command) client.Formatter {
 		formatter = client.OmitPayload(formatter)
 	}
 	return formatter
+}
+
+func loadEvents(files ...string) []base.Event {
+	var events []base.Event
+	for _, arg := range files {
+		if data, err := ioutil.ReadFile(arg); err == nil {
+			var ev []base.Event
+			if err := json.Unmarshal(data, &ev); err != nil {
+				panic(err)
+			}
+			events = append(events, ev...)
+		} else {
+			panic(err)
+		}
+	}
+	return events
 }
