@@ -139,7 +139,7 @@ func executeEmit(cmd *cobra.Command, args []string) {
 }
 
 func executePlay(cmd *cobra.Command, args []string) {
-	ctx, cancel := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
+	ctx, cancel := support.CancelContextOnSignals(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	pause, _ := cmd.Flags().GetInt("pause")
 	random, _ := cmd.Flags().GetBool("random")
 	manual, _ := cmd.Flags().GetBool("manual")
