@@ -16,7 +16,11 @@ func (s *Client) PlayEvents(ctx context.Context, events []base.Event, delay func
 	for _, event := range events {
 		delay()
 		if _, err := s.Emit(ctx, event); err != nil {
-			panic(err)
+			if ctx.Err() == context.Canceled {
+				return
+			} else {
+				panic(err)
+			}
 		}
 		fmt.Print(progressChar)
 	}
@@ -24,8 +28,8 @@ func (s *Client) PlayEvents(ctx context.Context, events []base.Event, delay func
 
 func ManualSuccession(cancel context.CancelFunc) func() {
 	return func() {
-		if _, key, err := keyboard.GetSingleKey(); err == nil {
-			if key == 0x03 || key == 'q' {
+		if ch, key, err := keyboard.GetSingleKey(); err == nil {
+			if key == 0x03 || ch == 'q' {
 				cancel()
 				return
 			}
