@@ -10,12 +10,12 @@ import (
 )
 
 func (s *Client) Emit(ctx context.Context, event es.Event) (es.Event, error) {
-	ack, err := s.eventStreamClient.Emit(ctx, rpc.EventToProto(&event))
+	pub, err := s.eventStreamClient.Emit(ctx, rpc.EventToProto(&event))
 	if err != nil {
 		return event, err
 	}
-	if ack != nil {
-		event.Sequence = ack.Sequence
+	if pub != nil {
+		event.Sequence = pub.Sequence
 		return event, err
 	} else {
 		return event, errors.New("didn't receive an Ack")
@@ -75,4 +75,13 @@ func (s *Client) Subscribe(ctx context.Context, clientID string, sel *es.Selecto
 		return err
 	}
 	return nil
+}
+
+func (s *Client) Acknowledge(ctx context.Context, clientID string, sequence int64) error {
+	ack := &rpc.Ack{
+		PersistentClientId: clientID,
+		Sequence:           sequence,
+	}
+	_, err := s.eventStreamClient.Acknowledge(ctx, ack)
+	return err
 }
