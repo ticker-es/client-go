@@ -74,6 +74,7 @@ var (
 			Flag("pretty", Bool(), Description("Use pretty-mode in Event output"), Persistent()),
 			Flag("selector", Str("/"), Abbr("s"), Description("Select which events to subscribe to"), Persistent()),
 			Flag("client-id", Str(""), Abbr("i"), Description("Unique Identifier for this subscription"), Mandatory(), Persistent(), Env()),
+			Flag("simulate-delay", Int(0), Description("Wait some time (in ms) until processing the next Event"), Persistent(), Env()),
 			Run(executeSubscribe),
 		),
 		SubCommand("metrics",
@@ -189,9 +190,11 @@ func executeStream(cmd *cobra.Command, args []string) {
 func executeSubscribe(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
 	clientID := viper.GetString("client-id")
+	simulateDelay := viper.GetInt("simulate-delay")
 	cl := connect()
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	err := cl.Subscribe(ctx, clientID, selectorFromFlags(cmd), func(e *base.Event) error {
+		time.Sleep(time.Duration(simulateDelay) * time.Millisecond)
 		return formatter(os.Stdout, e)
 	})
 	if err != nil {
