@@ -19,10 +19,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type EventStreamClient interface {
-	Emit(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Ack, error)
+	Emit(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Published, error)
 	Stream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (EventStream_StreamClient, error)
 	Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (EventStream_SubscribeClient, error)
-	Acknowledge(ctx context.Context, opts ...grpc.CallOption) (EventStream_AcknowledgeClient, error)
+	Acknowledge(ctx context.Context, in *Ack, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type eventStreamClient struct {
@@ -33,8 +33,8 @@ func NewEventStreamClient(cc grpc.ClientConnInterface) EventStreamClient {
 	return &eventStreamClient{cc}
 }
 
-func (c *eventStreamClient) Emit(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Ack, error) {
-	out := new(Ack)
+func (c *eventStreamClient) Emit(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Published, error) {
+	out := new(Published)
 	err := c.cc.Invoke(ctx, "/ticker.rpc.EventStream/Emit", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -106,48 +106,23 @@ func (x *eventStreamSubscribeClient) Recv() (*Event, error) {
 	return m, nil
 }
 
-func (c *eventStreamClient) Acknowledge(ctx context.Context, opts ...grpc.CallOption) (EventStream_AcknowledgeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &EventStream_ServiceDesc.Streams[2], "/ticker.rpc.EventStream/Acknowledge", opts...)
+func (c *eventStreamClient) Acknowledge(ctx context.Context, in *Ack, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/ticker.rpc.EventStream/Acknowledge", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &eventStreamAcknowledgeClient{stream}
-	return x, nil
-}
-
-type EventStream_AcknowledgeClient interface {
-	Send(*Ack) error
-	CloseAndRecv() (*emptypb.Empty, error)
-	grpc.ClientStream
-}
-
-type eventStreamAcknowledgeClient struct {
-	grpc.ClientStream
-}
-
-func (x *eventStreamAcknowledgeClient) Send(m *Ack) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *eventStreamAcknowledgeClient) CloseAndRecv() (*emptypb.Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(emptypb.Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 // EventStreamServer is the server API for EventStream service.
 // All implementations must embed UnimplementedEventStreamServer
 // for forward compatibility
 type EventStreamServer interface {
-	Emit(context.Context, *Event) (*Ack, error)
+	Emit(context.Context, *Event) (*Published, error)
 	Stream(*StreamRequest, EventStream_StreamServer) error
 	Subscribe(*SubscriptionRequest, EventStream_SubscribeServer) error
-	Acknowledge(EventStream_AcknowledgeServer) error
+	Acknowledge(context.Context, *Ack) (*emptypb.Empty, error)
 	mustEmbedUnimplementedEventStreamServer()
 }
 
@@ -155,7 +130,7 @@ type EventStreamServer interface {
 type UnimplementedEventStreamServer struct {
 }
 
-func (UnimplementedEventStreamServer) Emit(context.Context, *Event) (*Ack, error) {
+func (UnimplementedEventStreamServer) Emit(context.Context, *Event) (*Published, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Emit not implemented")
 }
 func (UnimplementedEventStreamServer) Stream(*StreamRequest, EventStream_StreamServer) error {
@@ -164,8 +139,8 @@ func (UnimplementedEventStreamServer) Stream(*StreamRequest, EventStream_StreamS
 func (UnimplementedEventStreamServer) Subscribe(*SubscriptionRequest, EventStream_SubscribeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedEventStreamServer) Acknowledge(EventStream_AcknowledgeServer) error {
-	return status.Errorf(codes.Unimplemented, "method Acknowledge not implemented")
+func (UnimplementedEventStreamServer) Acknowledge(context.Context, *Ack) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Acknowledge not implemented")
 }
 func (UnimplementedEventStreamServer) mustEmbedUnimplementedEventStreamServer() {}
 
@@ -240,30 +215,22 @@ func (x *eventStreamSubscribeServer) Send(m *Event) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _EventStream_Acknowledge_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(EventStreamServer).Acknowledge(&eventStreamAcknowledgeServer{stream})
-}
-
-type EventStream_AcknowledgeServer interface {
-	SendAndClose(*emptypb.Empty) error
-	Recv() (*Ack, error)
-	grpc.ServerStream
-}
-
-type eventStreamAcknowledgeServer struct {
-	grpc.ServerStream
-}
-
-func (x *eventStreamAcknowledgeServer) SendAndClose(m *emptypb.Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *eventStreamAcknowledgeServer) Recv() (*Ack, error) {
-	m := new(Ack)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _EventStream_Acknowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Ack)
+	if err := dec(in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	if interceptor == nil {
+		return srv.(EventStreamServer).Acknowledge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ticker.rpc.EventStream/Acknowledge",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventStreamServer).Acknowledge(ctx, req.(*Ack))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // EventStream_ServiceDesc is the grpc.ServiceDesc for EventStream service.
@@ -277,6 +244,10 @@ var EventStream_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Emit",
 			Handler:    _EventStream_Emit_Handler,
 		},
+		{
+			MethodName: "Acknowledge",
+			Handler:    _EventStream_Acknowledge_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -288,11 +259,6 @@ var EventStream_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Subscribe",
 			Handler:       _EventStream_Subscribe_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "Acknowledge",
-			Handler:       _EventStream_Acknowledge_Handler,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "event_stream.proto",
