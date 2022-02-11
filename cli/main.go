@@ -189,7 +189,7 @@ func executeStream(cmd *cobra.Command, args []string) {
 
 func executeSubscribe(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
-	clientID := viper.GetString("client-id")
+	clientID := viper.GetString("client_id")
 	simulateDelay := viper.GetInt("simulate-delay")
 	cl := connect()
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
