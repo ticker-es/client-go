@@ -25,6 +25,7 @@ type EventStream interface {
 	LastSequence() int64
 	Get(sequence int64) (*Event, error)
 	Stream(ctx context.Context, sel Selector, bracket Bracket, handler EventHandler) error
+	Listen(ctx context.Context, sel Selector, handler EventHandler) error
 	Subscribe(ctx context.Context, persistentClientID string, sel Selector, handler EventHandler) (Subscription, error)
 	// Subscriptions returns all currently known Subscriptions.
 	Subscriptions() []Subscription
