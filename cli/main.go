@@ -6,6 +6,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	"io"
 	"io/ioutil"
 	"os"
@@ -145,7 +147,7 @@ func executePlay(cmd *cobra.Command, args []string) {
 	pause, _ := cmd.Flags().GetInt("pause")
 	random, _ := cmd.Flags().GetBool("random")
 	manual, _ := cmd.Flags().GetBool("manual")
-	sunflower, _ := cmd.Flags().GetBool("sunflower")
+	//sunflower, _ := cmd.Flags().GetBool("sunflower")
 	cl := connect()
 	var delay func()
 	if manual {
@@ -157,18 +159,29 @@ func executePlay(cmd *cobra.Command, args []string) {
 			delay = client.FixedDelay(pause)
 		}
 	}
-	var progressChar string
-	if sunflower {
-		progressChar = "🌻"
-	} else {
-		progressChar = "•"
-	}
+	events := loadEvents(args...)
+	progress := mpb.New()
+	bar := progress.Add(
+		int64(len(events)),
+		mpb.NewBarFiller(mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding(" ").Rbound("]")),
+		mpb.AppendDecorators(
+			decor.Percentage(),
+			decor.CountersNoUnit("  %d/%d"),
+		),
+	)
+	defer func() {
+		bar.Abort(false)
+		progress.Wait()
+	}()
+	//if sunflower {
+	//	progressChar = "🌻"
+	//} else {
+	//	progressChar = "•"
+	//}
 	if manual {
 		fmt.Print("Press any key to send the next event (q for quit) ")
 	}
-	fmt.Print("[")
-	cl.PlayEvents(ctx, loadEvents(args...), delay, progressChar)
-	fmt.Println("]")
+	cl.PlayEvents(ctx, events, delay, bar.Increment)
 }
 
 func executeSample(cmd *cobra.Command, args []string) {

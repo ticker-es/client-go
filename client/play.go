@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -24,7 +23,9 @@ func (s *Client) PlayEvents(ctx context.Context, events []base.Event, delay func
 				panic(err)
 			}
 		}
-		fmt.Print(progressChar)
+		if progress != nil {
+			progress()
+		}
 	}
 }
 
