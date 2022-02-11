@@ -9,6 +9,8 @@ import (
 	"github.com/ticker-es/client-go/rpc"
 )
 
+var ErrInvalidClientID = errors.New("invalid clientID")
+
 func (s *Client) Emit(ctx context.Context, event es.Event) (es.Event, error) {
 	pub, err := s.eventStreamClient.Emit(ctx, rpc.EventToProto(&event))
 	if err != nil {
@@ -50,6 +52,9 @@ func (s *Client) Stream(ctx context.Context, selector *es.Selector, bracket *es.
 }
 
 func (s *Client) Subscribe(ctx context.Context, clientID string, sel *es.Selector, handler es.EventHandler) error {
+	if clientID == "" {
+		return ErrInvalidClientID
+	}
 	req := &rpc.SubscriptionRequest{
 		PersistentClientId: clientID,
 		Selector:           rpc.SelectorToProto(sel),
