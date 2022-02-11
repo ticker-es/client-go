@@ -65,6 +65,7 @@ var (
 			Flag("pretty", Bool(), Description("Use pretty-mode in Event output"), Persistent()),
 			Flag("selector", Str("/"), Abbr("s"), Description("Select which events to stream"), Persistent()),
 			Flag("range", Str("1:"), Abbr("r"), Description("Select which events to stream"), Persistent()),
+			Flag("simulate-delay", Int(0), Description("Wait some time (in ms) until processing the next Event"), Persistent(), Env()),
 			Run(executeStream),
 		),
 		SubCommand("subscribe",
@@ -176,9 +177,13 @@ func executeSample(cmd *cobra.Command, args []string) {
 
 func executeStream(cmd *cobra.Command, args []string) {
 	formatter := createFormatter(cmd)
+	simulateDelay := viper.GetInt("simulate-delay")
 	cl := connect()
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	count, err := cl.Stream(ctx, selectorFromFlags(cmd), bracketFromFlags(cmd), func(e *base.Event) error {
+		if simulateDelay != 0 {
+			time.Sleep(time.Duration(simulateDelay) * time.Millisecond)
+		}
 		return formatter(os.Stdout, e)
 	})
 	fmt.Printf("Handled %d events\n", count)
@@ -194,7 +199,9 @@ func executeSubscribe(cmd *cobra.Command, args []string) {
 	cl := connect()
 	ctx, _ := support.CancelContextOnSignals(context.Background(), syscall.SIGINT)
 	err := cl.Subscribe(ctx, clientID, selectorFromFlags(cmd), func(e *base.Event) error {
-		time.Sleep(time.Duration(simulateDelay) * time.Millisecond)
+		if simulateDelay != 0 {
+			time.Sleep(time.Duration(simulateDelay) * time.Millisecond)
+		}
 		return formatter(os.Stdout, e)
 	})
 	if err != nil {

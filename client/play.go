@@ -12,9 +12,11 @@ import (
 	_ "github.com/vbauerster/mpb/v7"
 )
 
-func (s *Client) PlayEvents(ctx context.Context, events []base.Event, delay func(), progressChar string) {
+func (s *Client) PlayEvents(ctx context.Context, events []base.Event, delay func(), progress func()) {
 	for _, event := range events {
-		delay()
+		if delay != nil {
+			delay()
+		}
 		if _, err := s.Emit(ctx, event); err != nil {
 			if ctx.Err() == context.Canceled {
 				return
