@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type EventStreamClient interface {
 	Emit(ctx context.Context, in *Event, opts ...grpc.CallOption) (*Published, error)
 	Stream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (EventStream_StreamClient, error)
+	Listen(ctx context.Context, in *ListenRequest, opts ...grpc.CallOption) (EventStream_ListenClient, error)
 	Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (EventStream_SubscribeClient, error)
 	Acknowledge(ctx context.Context, in *Ack, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -74,8 +75,40 @@ func (x *eventStreamStreamClient) Recv() (*Event, error) {
 	return m, nil
 }
 
+func (c *eventStreamClient) Listen(ctx context.Context, in *ListenRequest, opts ...grpc.CallOption) (EventStream_ListenClient, error) {
+	stream, err := c.cc.NewStream(ctx, &EventStream_ServiceDesc.Streams[1], "/ticker.rpc.EventStream/Listen", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &eventStreamListenClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type EventStream_ListenClient interface {
+	Recv() (*Event, error)
+	grpc.ClientStream
+}
+
+type eventStreamListenClient struct {
+	grpc.ClientStream
+}
+
+func (x *eventStreamListenClient) Recv() (*Event, error) {
+	m := new(Event)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *eventStreamClient) Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (EventStream_SubscribeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &EventStream_ServiceDesc.Streams[1], "/ticker.rpc.EventStream/Subscribe", opts...)
+	stream, err := c.cc.NewStream(ctx, &EventStream_ServiceDesc.Streams[2], "/ticker.rpc.EventStream/Subscribe", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +154,7 @@ func (c *eventStreamClient) Acknowledge(ctx context.Context, in *Ack, opts ...gr
 type EventStreamServer interface {
 	Emit(context.Context, *Event) (*Published, error)
 	Stream(*StreamRequest, EventStream_StreamServer) error
+	Listen(*ListenRequest, EventStream_ListenServer) error
 	Subscribe(*SubscriptionRequest, EventStream_SubscribeServer) error
 	Acknowledge(context.Context, *Ack) (*emptypb.Empty, error)
 	mustEmbedUnimplementedEventStreamServer()
@@ -135,6 +169,9 @@ func (UnimplementedEventStreamServer) Emit(context.Context, *Event) (*Published,
 }
 func (UnimplementedEventStreamServer) Stream(*StreamRequest, EventStream_StreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedEventStreamServer) Listen(*ListenRequest, EventStream_ListenServer) error {
+	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
 }
 func (UnimplementedEventStreamServer) Subscribe(*SubscriptionRequest, EventStream_SubscribeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
@@ -191,6 +228,27 @@ type eventStreamStreamServer struct {
 }
 
 func (x *eventStreamStreamServer) Send(m *Event) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _EventStream_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListenRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(EventStreamServer).Listen(m, &eventStreamListenServer{stream})
+}
+
+type EventStream_ListenServer interface {
+	Send(*Event) error
+	grpc.ServerStream
+}
+
+type eventStreamListenServer struct {
+	grpc.ServerStream
+}
+
+func (x *eventStreamListenServer) Send(m *Event) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -253,6 +311,11 @@ var EventStream_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Stream",
 			Handler:       _EventStream_Stream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Listen",
+			Handler:       _EventStream_Listen_Handler,
 			ServerStreams: true,
 		},
 		{
