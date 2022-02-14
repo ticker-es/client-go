@@ -27,6 +27,7 @@ type EventStream interface {
 	Stream(ctx context.Context, sel Selector, bracket Bracket, handler EventHandler) error
 	Listen(ctx context.Context, sel Selector, handler EventHandler) error
 	Subscribe(ctx context.Context, persistentClientID string, sel Selector, handler EventHandler) (Subscription, error)
+	Acknowledge(persistentClientID string, sequence int64) error
 	// Subscriptions returns all currently known Subscriptions.
 	Subscriptions() []Subscription
 }

@@ -60,33 +60,35 @@ func (s *Client) Subscribe(ctx context.Context, clientID string, sel *es.Selecto
 		Selector:           rpc.SelectorToProto(sel),
 	}
 	if sub, err := s.eventStreamClient.Subscribe(ctx, req); err == nil {
-		for {
-			if ev, err := sub.Recv(); err == nil {
-				event := rpc.ProtoToEvent(ev)
-				err := handler(event)
-				if err != nil {
-					// TODO Check whether to close connection
+		if ackStream, err := s.eventStreamClient.Acknowledge(ctx); err != nil {
+			return err
+		} else {
+			defer ackStream.CloseSend()
+			for {
+				if ev, err := sub.Recv(); err == nil {
+					event := rpc.ProtoToEvent(ev)
+					if err := handler(event); err != nil {
+						// TODO Check whether to close connection
+						return err
+					}
+					ack := &rpc.Ack{
+						PersistentClientId: clientID,
+						Sequence:           event.Sequence,
+					}
+					if err := ackStream.Send(ack); err != nil {
+						return err
+					}
+				} else {
+					if err == io.EOF {
+						// Server closed the connection
+						break
+					}
 					return err
 				}
-			} else {
-				if err == io.EOF {
-					// Server closed the connection
-					break
-				}
-				return err
 			}
 		}
 	} else {
 		return err
 	}
 	return nil
-}
-
-func (s *Client) Acknowledge(ctx context.Context, clientID string, sequence int64) error {
-	ack := &rpc.Ack{
-		PersistentClientId: clientID,
-		Sequence:           sequence,
-	}
-	_, err := s.eventStreamClient.Acknowledge(ctx, ack)
-	return err
 }
