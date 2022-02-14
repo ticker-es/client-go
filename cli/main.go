@@ -147,7 +147,7 @@ func executePlay(cmd *cobra.Command, args []string) {
 	pause, _ := cmd.Flags().GetInt("pause")
 	random, _ := cmd.Flags().GetBool("random")
 	manual, _ := cmd.Flags().GetBool("manual")
-	//sunflower, _ := cmd.Flags().GetBool("sunflower")
+	sunflower, _ := cmd.Flags().GetBool("sunflower")
 	cl := connect()
 	var delay func()
 	if manual {
@@ -161,9 +161,15 @@ func executePlay(cmd *cobra.Command, args []string) {
 	}
 	events := loadEvents(args...)
 	progress := mpb.New()
+	var filler mpb.BarFiller
+	if sunflower {
+		filler = mpb.NewBarFiller(mpb.BarStyle().Lbound("[").Filler("🌻").Tip("🌧").Padding(" ").Rbound("]"))
+	} else {
+		filler = mpb.NewBarFiller(mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding(" ").Rbound("]"))
+	}
 	bar := progress.Add(
 		int64(len(events)),
-		mpb.NewBarFiller(mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding(" ").Rbound("]")),
+		filler,
 		mpb.AppendDecorators(
 			decor.Percentage(),
 			decor.CountersNoUnit("  %d/%d"),
@@ -173,11 +179,6 @@ func executePlay(cmd *cobra.Command, args []string) {
 		bar.Abort(false)
 		progress.Wait()
 	}()
-	//if sunflower {
-	//	progressChar = "🌻"
-	//} else {
-	//	progressChar = "•"
-	//}
 	if manual {
 		fmt.Print("Press any key to send the next event (q for quit) ")
 	}
