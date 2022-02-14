@@ -12,6 +12,6 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/vbauerster/mpb/v7 v7.1.3
 	google.golang.org/grpc v1.35.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/workanator/go-ataman.v1 v1.0.0-20201223053604-e3b73d2e8108
 )
