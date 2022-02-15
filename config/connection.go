@@ -13,7 +13,7 @@ func Connect(connect, caCert, clientCert, clientKey string) *client.Client {
 	certificates := readClientCerts(clientCert, clientKey)
 	cfg := &tls.Config{
 		Certificates:     certificates,
-		RootCAs:          readCACerts(caCert),
+		RootCAs:          ReadCACerts(caCert),
 		VerifyConnection: verifyConnection,
 	}
 	cred := credentials.NewTLS(cfg)
@@ -38,7 +38,7 @@ func verifyConnection(state tls.ConnectionState) error {
 	return nil
 }
 
-func readCACerts(caCertFiles ...string) *x509.CertPool {
+func ReadCACerts(caCertFiles ...string) *x509.CertPool {
 	caCerts := x509.NewCertPool()
 	for _, caCertFile := range caCertFiles {
 		if caCertData, err := ioutil.ReadFile(caCertFile); err == nil {
