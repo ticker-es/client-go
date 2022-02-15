@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/ticker-es/client-go/config"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
 	"io"
-	"io/ioutil"
 	"os"
 	"syscall"
 	"time"
-
-	"google.golang.org/grpc/credentials"
 
 	"github.com/spf13/viper"
 
@@ -31,11 +27,9 @@ var (
 	commit  = "none"
 	app     = NewCommandline("ticker",
 		Short("Run the ticker client"),
-		Flag("connect", Str("localhost:6677"), Abbr("c"), Description("Server to connect to"), Mandatory(), Persistent(), Env()),
+		config.FlagConnect(),
 		Flag("insecure", Bool(), Description("Connect insecurely (without TLS/checking)"), Persistent(), Env()),
-		Flag("ca-cert", Str(""), Description("CA certificate used to verify server connection"), Persistent(), EnvName("ca_cert")),
-		Flag("client-cert", Str(""), Description("Client certificate"), Persistent(), EnvName("client_cert")),
-		Flag("client-key", Str(""), Description("Client key"), Persistent(), EnvName("client_key")),
+		config.FlagCerts(),
 		Flag("token", Str(""), Abbr("a"), Description("Token to use for authentication against the Ticker Server"), Persistent(), Env()),
 		FlagLogFile(),
 		FlagLogFormat(),
@@ -240,44 +234,10 @@ func executeMetrics(cmd *cobra.Command, args []string) {
 }
 
 func connect() *client.Client {
-	certificates := readClientCerts()
-	cfg := &tls.Config{
-		Certificates:     certificates,
-		RootCAs:          readCACerts(viper.GetString("ca_cert")),
-		VerifyConnection: verifyConnection,
-	}
-	cred := credentials.NewTLS(cfg)
-	cl := client.NewClient(viper.GetString("connect"), client.Credentials(cred))
-	if err := cl.Connect(); err != nil {
-		panic(err)
-	}
-	return cl
-}
-
-func readClientCerts() []tls.Certificate {
-	var certificates []tls.Certificate
-	if cert, err := tls.LoadX509KeyPair(viper.GetString("client_cert"), viper.GetString("client_key")); err == nil {
-		certificates = append(certificates, cert)
-	} else {
-		logging.L().Err(err).Msg("Could not read client certificate/key")
-	}
-	return certificates
-}
-
-func verifyConnection(state tls.ConnectionState) error {
-	return nil
-}
-
-func readCACerts(caCertFiles ...string) *x509.CertPool {
-	caCerts := x509.NewCertPool()
-	for _, caCertFile := range caCertFiles {
-		if caCertData, err := ioutil.ReadFile(caCertFile); err == nil {
-			if !caCerts.AppendCertsFromPEM(caCertData) {
-				logging.L().Error().Str("filename", caCertFile).Msg("Could not parse CA Certificate from PEM")
-			}
-		} else {
-			logging.L().Err(err).Msg("Could not read CA Certificate")
-		}
-	}
-	return caCerts
+	return config.Connect(
+		viper.GetString("connect"),
+		viper.GetString("ca_cert"),
+		viper.GetString("client_cert"),
+		viper.GetString("client_key"),
+	)
 }
