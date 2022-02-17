@@ -202,16 +202,21 @@ func EventStreamSampleGroup(factory func() EventStream) {
 		ctx, cancel := context.WithCancel(context.Background())
 		sub, _ := w.Stream().Subscribe(ctx, "test", Select(), func(e *Event) error {
 			counter++
+			w.Stream().Acknowledge("test", e.Sequence)
 			return nil
 		})
 		Eventually(func() int { return counter }).Should(Equal(2))
+		// Begin of outage
 		cancel()
 		Eventually(func() bool { return sub.Active() }).Should(BeFalse())
+		// Events emitted while Consumer is down
 		w.Emit(w.Type("second"), w.Agg("test", "1"))
 		w.Emit(w.Type("second"), w.Agg("test", "2"))
 		ctx, cancel = context.WithCancel(context.Background())
+		// Re-attach subscription
 		sub, _ = w.Stream().Subscribe(ctx, "test", Select(), func(e *Event) error {
 			counter++
+			w.Stream().Acknowledge("test", e.Sequence)
 			return nil
 		})
 		Eventually(func() int { return counter }).Should(Equal(4))
